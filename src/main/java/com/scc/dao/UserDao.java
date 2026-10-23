@@ -11,8 +11,7 @@ import java.util.HexFormat;
 public class UserDao {
 
     public UserDao() {
-        DatabaseConnection.initializeDatabase();
-
+        // Tables are created beforehand by DatabaseInitializer.initialize() (called from Main).
         try (Connection conn = DatabaseConnection.getConnection()) {
             defaultOwnerGenerate(conn);
         } catch (SQLException e) {
