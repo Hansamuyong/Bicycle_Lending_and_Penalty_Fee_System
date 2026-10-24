@@ -5,7 +5,6 @@ import com.scc.model.User;
 
 import java.util.Scanner;
 
-// Handles registration, login, role selection and role-based menu routing.
 public class Authentication {
 
     private final UserDao userDao;
@@ -103,7 +102,6 @@ public class Authentication {
         userDao.registerUser(firstName, lastName, username, password, role);
     }
 
-    // Role selection for all roles in the proposal: Owner, Counter Staff, Maintenance Staff.
     private String selectRole() {
         System.out.println("Role:  [1] Shop Owner   [2] Counter Staff   [3] Maintenance Staff");
         System.out.print("Enter choice: ");

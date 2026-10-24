@@ -4,7 +4,6 @@ import java.sql.Connection;
 import java.sql.SQLException;
 import java.sql.Statement;
 
-// Ensures all required tables exist before the CLI menu starts.
 public class DatabaseInitializer {
 
     public static void initialize() {
