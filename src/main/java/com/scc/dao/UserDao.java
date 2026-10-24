@@ -6,12 +6,13 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.sql.*;
+import java.util.ArrayList;
 import java.util.HexFormat;
+import java.util.List;
 
 public class UserDao {
 
     public UserDao() {
-        // Tables are created beforehand by DatabaseInitializer.initialize() (called from Main).
         try (Connection conn = DatabaseConnection.getConnection()) {
             defaultOwnerGenerate(conn);
         } catch (SQLException e) {
@@ -28,7 +29,6 @@ public class UserDao {
         }
     }
 
-    // Creates the default Shop Owner (Admin) account if none exists yet.
     public void defaultOwnerGenerate(Connection conn) {
         String checkSql = "SELECT COUNT(*) FROM users WHERE user_role = 'OWNER'";
         String insertSql = "INSERT INTO users(first_name, last_name, username, password_hash, user_role, status) "
@@ -128,14 +128,12 @@ public class UserDao {
             System.err.println("Error during login " + e.getMessage());
         }
 
-        // The connection is closed by now, so writing the log will not hit a lock.
         if (user != null) {
             logActivity(user.user_id(), "LOGIN", user.username() + " logged in");
         }
         return user;
     }
 
-    // Writes one row to the Activity_Logs table (LOGIN, LOGOUT, STATUS_CHANGE, RECORD_EDIT).
     public void logActivity(int userId, String actionType, String description) {
         String sql = "INSERT INTO activity_logs(user_id, action_type, description) VALUES (?, ?, ?)";
 
@@ -149,5 +147,67 @@ public class UserDao {
         } catch (SQLException e) {
             System.err.println("Error writing activity log: " + e.getMessage());
         }
+    }
+
+    public List<User> getAllUsers() {
+        List<User> users = new ArrayList<>();
+        String sql = "SELECT user_id, first_name, last_name, username, password_hash, user_role, status "
+                + "FROM users ORDER BY user_id";
+
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql);
+             ResultSet rs = pstmt.executeQuery()) {
+
+            while (rs.next()) {
+                users.add(mapRowToUser(rs));
+            }
+        } catch (SQLException e) {
+            System.err.println("Error fetching users: " + e.getMessage());
+        }
+        return users;
+    }
+
+    public List<User> getPendingUsers() {
+        List<User> users = new ArrayList<>();
+        String sql = "SELECT user_id, first_name, last_name, username, password_hash, user_role, status "
+                + "FROM users WHERE status = 'PENDING' ORDER BY user_id";
+
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql);
+             ResultSet rs = pstmt.executeQuery()) {
+
+            while (rs.next()) {
+                users.add(mapRowToUser(rs));
+            }
+        } catch (SQLException e) {
+            System.err.println("Error fetching pending users: " + e.getMessage());
+        }
+        return users;
+    }
+
+    public boolean approveUser(int userId) {
+        String sql = "UPDATE users SET status = 'APPROVED' WHERE user_id = ? AND status = 'PENDING'";
+
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+
+            pstmt.setInt(1, userId);
+            return pstmt.executeUpdate() > 0;
+        } catch (SQLException e) {
+            System.err.println("Error approving user: " + e.getMessage());
+            return false;
+        }
+    }
+
+    private User mapRowToUser(ResultSet rs) throws SQLException {
+        return new User(
+                rs.getInt("user_id"),
+                rs.getString("first_name"),
+                rs.getString("last_name"),
+                rs.getString("username"),
+                rs.getString("password_hash"),
+                rs.getString("user_role"),
+                rs.getString("status")
+        );
     }
 }
