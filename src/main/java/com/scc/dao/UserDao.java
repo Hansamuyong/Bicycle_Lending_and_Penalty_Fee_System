@@ -2,12 +2,8 @@ package com.scc.dao;
 
 import com.scc.model.User;
 
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.sql.*;
 import java.util.ArrayList;
-import java.util.HexFormat;
 import java.util.List;
 
 public class UserDao {
@@ -20,18 +16,9 @@ public class UserDao {
         }
     }
 
-    public static String hashPassword(String password) {
-        try {
-            MessageDigest md = MessageDigest.getInstance("SHA-256");
-            return HexFormat.of().formatHex(md.digest(password.getBytes(StandardCharsets.UTF_8)));
-        } catch (NoSuchAlgorithmException e) {
-            throw new IllegalStateException("SHA-256 not available", e);
-        }
-    }
-
     public void defaultOwnerGenerate(Connection conn) {
         String checkSql = "SELECT COUNT(*) FROM users WHERE user_role = 'OWNER'";
-        String insertSql = "INSERT INTO users(first_name, last_name, username, password_hash, user_role, status) "
+        String insertSql = "INSERT INTO users(first_name, last_name, username, password, user_role, status) "
                 + "VALUES(?, ?, ?, ?, 'OWNER', 'APPROVED')";
 
         try (Statement stmt = conn.createStatement();
@@ -41,7 +28,7 @@ public class UserDao {
                     pstmt.setString(1, "Shop");
                     pstmt.setString(2, "Owner");
                     pstmt.setString(3, "owner");
-                    pstmt.setString(4, hashPassword("owner123"));
+                    pstmt.setString(4, "owner123");
                     pstmt.executeUpdate();
                     System.out.println("--- Default Owner Created (Username: owner | Password: owner123)");
                 }
@@ -52,7 +39,7 @@ public class UserDao {
     }
 
     public boolean registerUser(String firstName, String lastName, String username, String password, String role) {
-        String sql = "INSERT INTO users(first_name, last_name, username, password_hash, user_role, status) "
+        String sql = "INSERT INTO users(first_name, last_name, username, password, user_role, status) "
                 + "VALUES (?, ?, ?, ?, ?, 'PENDING')";
 
         try (Connection conn = DatabaseConnection.getConnection();
@@ -61,7 +48,7 @@ public class UserDao {
             pstmt.setString(1, firstName);
             pstmt.setString(2, lastName);
             pstmt.setString(3, username);
-            pstmt.setString(4, hashPassword(password));
+            pstmt.setString(4, password);
             pstmt.setString(5, role.toUpperCase());
             pstmt.executeUpdate();
             System.out.println("---- Registration successful. Please wait for the Shop Owner's approval.");
@@ -89,8 +76,8 @@ public class UserDao {
     }
 
     public User login(String username, String password) {
-        String sql = "SELECT user_id, first_name, last_name, username, password_hash, user_role, status "
-                + "FROM users WHERE username = ? AND password_hash = ?";
+        String sql = "SELECT user_id, first_name, last_name, username, password, user_role, status "
+                + "FROM users WHERE username = ? AND password = ?";
 
         User user = null;
 
@@ -98,7 +85,7 @@ public class UserDao {
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
 
             pstmt.setString(1, username);
-            pstmt.setString(2, hashPassword(password));
+            pstmt.setString(2, password);
 
             try (ResultSet rs = pstmt.executeQuery()) {
                 if (rs.next()) {
@@ -116,7 +103,7 @@ public class UserDao {
                             rs.getString("first_name"),
                             rs.getString("last_name"),
                             rs.getString("username"),
-                            rs.getString("password_hash"),
+                            rs.getString("password"),
                             rs.getString("user_role"),
                             status
                     );
@@ -151,7 +138,7 @@ public class UserDao {
 
     public List<User> getAllUsers() {
         List<User> users = new ArrayList<>();
-        String sql = "SELECT user_id, first_name, last_name, username, password_hash, user_role, status "
+        String sql = "SELECT user_id, first_name, last_name, username, password, user_role, status "
                 + "FROM users ORDER BY user_id";
 
         try (Connection conn = DatabaseConnection.getConnection();
@@ -169,7 +156,7 @@ public class UserDao {
 
     public List<User> getPendingUsers() {
         List<User> users = new ArrayList<>();
-        String sql = "SELECT user_id, first_name, last_name, username, password_hash, user_role, status "
+        String sql = "SELECT user_id, first_name, last_name, username, password, user_role, status "
                 + "FROM users WHERE status = 'PENDING' ORDER BY user_id";
 
         try (Connection conn = DatabaseConnection.getConnection();
@@ -199,13 +186,69 @@ public class UserDao {
         }
     }
 
+    // NEW: update a user's role and status (inputs converted to upper case)
+    public boolean updateUserRoleAndStatus(int userId, String newRole, String newStatus) {
+        String sql = "UPDATE users SET user_role = ?, status = ? WHERE user_id = ?";
+
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+
+            pstmt.setString(1, newRole.toUpperCase());
+            pstmt.setString(2, newStatus.toUpperCase());
+            pstmt.setInt(3, userId);
+            return pstmt.executeUpdate() > 0;
+        } catch (SQLException e) {
+            System.err.println("Error updating user: " + e.getMessage());
+            return false;
+        }
+    }
+
+    // CREATE: admin creates a user directly with a chosen role and status
+    public boolean createUser(String firstName, String lastName, String username,
+                              String password, String role, String status) {
+        String sql = "INSERT INTO users(first_name, last_name, username, password, user_role, status) "
+                + "VALUES (?, ?, ?, ?, ?, ?)";
+
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+
+            pstmt.setString(1, firstName);
+            pstmt.setString(2, lastName);
+            pstmt.setString(3, username);
+            pstmt.setString(4, password);
+            pstmt.setString(5, role.toUpperCase());
+            pstmt.setString(6, status.toUpperCase());
+            pstmt.executeUpdate();
+            return true;
+        } catch (SQLException e) {
+            System.err.println("Error creating user: " + e.getMessage());
+            return false;
+        }
+    }
+
+    // DELETE (soft delete): marks the account DEACTIVATED so login is blocked.
+    // A hard DELETE would fail because activity_logs/rentals reference the user.
+    public boolean deactivateUser(int userId) {
+        String sql = "UPDATE users SET status = 'DEACTIVATED' WHERE user_id = ? AND status <> 'DEACTIVATED'";
+
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+
+            pstmt.setInt(1, userId);
+            return pstmt.executeUpdate() > 0;
+        } catch (SQLException e) {
+            System.err.println("Error deleting user: " + e.getMessage());
+            return false;
+        }
+    }
+
     private User mapRowToUser(ResultSet rs) throws SQLException {
         return new User(
                 rs.getInt("user_id"),
                 rs.getString("first_name"),
                 rs.getString("last_name"),
                 rs.getString("username"),
-                rs.getString("password_hash"),
+                rs.getString("password"),
                 rs.getString("user_role"),
                 rs.getString("status")
         );
