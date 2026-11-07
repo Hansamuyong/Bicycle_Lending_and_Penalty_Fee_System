@@ -1,5 +1,6 @@
 package com.scc.ui;
 
+import com.scc.dao.ActivityLogDao;
 import com.scc.dao.UserDao;
 import com.scc.model.User;
 
@@ -12,6 +13,7 @@ public class Authentication {
     private final OwnerMenu ownerMenu;
     private final CounterStaffMenu counterMenu;
     private final MaintenanceStaffMenu maintenanceMenu;
+    private final ActivityLogDao activityLogDao = new ActivityLogDao();
 
     public Authentication(UserDao userDao, Scanner scanner) {
         this.userDao = userDao;
@@ -58,7 +60,13 @@ public class Authentication {
         }
 
         System.out.println("\nWelcome, " + user.fullName() + "! (" + user.role() + ")");
-        routeToMenu(user);
+        activityLogDao.logAction(user.user_id(), "LOGIN",
+                "User " + user.username() + " (ID: " + user.user_id() + ") logged in.");
+
+        routeToMenu(user);   // returns when the user logs out
+
+        activityLogDao.logAction(user.user_id(), "LOGOUT",
+                "User " + user.username() + " (ID: " + user.user_id() + ") logged out.");
     }
 
     private void routeToMenu(User user) {

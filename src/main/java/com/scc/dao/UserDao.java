@@ -115,25 +115,7 @@ public class UserDao {
             System.err.println("Error during login " + e.getMessage());
         }
 
-        if (user != null) {
-            logActivity(user.user_id(), "LOGIN", user.username() + " logged in");
-        }
         return user;
-    }
-
-    public void logActivity(int userId, String actionType, String description) {
-        String sql = "INSERT INTO activity_logs(user_id, action_type, description) VALUES (?, ?, ?)";
-
-        try (Connection conn = DatabaseConnection.getConnection();
-             PreparedStatement pstmt = conn.prepareStatement(sql)) {
-
-            pstmt.setInt(1, userId);
-            pstmt.setString(2, actionType);
-            pstmt.setString(3, description);
-            pstmt.executeUpdate();
-        } catch (SQLException e) {
-            System.err.println("Error writing activity log: " + e.getMessage());
-        }
     }
 
     public List<User> getAllUsers() {

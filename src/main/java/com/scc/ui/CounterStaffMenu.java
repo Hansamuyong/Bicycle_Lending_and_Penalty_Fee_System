@@ -43,7 +43,6 @@ public class CounterStaffMenu {
                     comingSoon();
                     break;
                 case "0":
-                    userDao.logActivity(staff.user_id(), "LOGOUT", staff.username() + " logged out");
                     System.out.println("Logging out... Goodbye!");
                     running = false;
                     break;

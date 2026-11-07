@@ -29,7 +29,7 @@ public class OwnerMenu {
             System.out.println("[5] Manage Customers");
             System.out.println("[6] Cancel Invalid Rental Transactions");
             System.out.println("[7] Daily Rental & Penalty Fee Summary Report");
-            System.out.println("[8] View User Activity & System Audit Log");
+            System.out.println("[8] View System Audit Logs");
             System.out.println("[0] Logout");
             System.out.print("Enter choice: ");
 
@@ -39,17 +39,18 @@ public class OwnerMenu {
                 case "1":
                     adminMenu.display(owner);
                     break;
+                case "8":
+                    adminMenu.viewAuditLogs(owner);
+                    break;
                 case "2":
                 case "3":
                 case "4":
                 case "5":
                 case "6":
                 case "7":
-                case "8":
                     comingSoon();
                     break;
                 case "0":
-                    userDao.logActivity(owner.user_id(), "LOGOUT", owner.username() + " logged out");
                     System.out.println("Logging out... Goodbye!");
                     running = false;
                     break;
